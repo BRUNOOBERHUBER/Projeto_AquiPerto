@@ -1,9 +1,20 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, jsonify
 import folium
+import os
+from dotenv import load_dotenv
+import certifi
+from flask_pymongo import PyMongo, ObjectId 
+
+load_dotenv('.cred')
 
 app = Flask(__name__)
 
-@app.route('/')
+ca = certifi.where()
+app.config["MONGO_URI"] = os.getenv("MONGO_URI")
+mongo = PyMongo(app, tlsCAFile=ca)
+
+
+@app.route('/mapa', methods=['GET'])
 def mapa():
     # Cria o mapa centralizado em uma localização específica
     mapa = folium.Map(location=[-23.598858, -46.676492], zoom_start=16)
