@@ -6,6 +6,7 @@ import certifi
 from flask_pymongo import PyMongo, ObjectId 
 
 load_dotenv('.cred')
+from flask import Flask, jsonify
 
 app = Flask(__name__)
 
@@ -14,28 +15,21 @@ app.config["MONGO_URI"] = os.getenv("MONGO_URI")
 mongo = PyMongo(app, tlsCAFile=ca)
 
 
-@app.route('/mapa', methods=['GET'])
-def mapa():
-    # Cria o mapa centralizado em uma localização específica
-    mapa = folium.Map(location=[-23.598858, -46.676492], zoom_start=16)
-
-    # Adiciona um marcador de exemplo
-    folium.Marker(
-        location=[-23.598858, -46.676492],
-        popup="Insper EDU",
-        tooltip="Clique para mais informações"
-    ).add_to(mapa)
-
-    # Salva o mapa diretamente na pasta `templates`
-    mapa.save('templates/map.html')
-    return render_template('map.html')
-  
- 
 @app.route('/')
 def index():
     return render_template('index.html')
 
 
+# Rota para fornecer dados de localização
+@app.route("/locations")
+def get_locations():
+    # Exemplo de dados de localização
+    locations = [
+        {"name": "São Paulo", "lat": -23.55052, "lon": -46.633308},
+        {"name": "Rio de Janeiro", "lat": -22.906847, "lon": -43.172896},
+        # Adicione mais localizações aqui
+    ]
+    return jsonify(locations)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
