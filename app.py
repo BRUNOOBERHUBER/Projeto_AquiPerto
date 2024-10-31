@@ -34,6 +34,12 @@ def get_locations():
     return jsonify(locations)
 
 
+@app.route('/login', methods=['POST'])
+def login():
+    email = request.form['login-email']
+    senha = request.form['login-password']
+    return print(email, senha)
+
 # USUÁRIOS
 # GET
 @app.route('/usuarios', methods=['GET'])
