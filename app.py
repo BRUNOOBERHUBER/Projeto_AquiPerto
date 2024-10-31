@@ -1,6 +1,24 @@
+from flask import Flask, render_template, request, jsonify
+import folium
+import os
+from dotenv import load_dotenv
+import certifi
+from flask_pymongo import PyMongo, ObjectId 
+
+load_dotenv('.cred')
 from flask import Flask, jsonify
 
 app = Flask(__name__)
+
+ca = certifi.where()
+app.config["MONGO_URI"] = os.getenv("MONGO_URI")
+mongo = PyMongo(app, tlsCAFile=ca)
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 
 # Rota para fornecer dados de localização
 @app.route("/locations")
