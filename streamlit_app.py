@@ -23,12 +23,8 @@ for location in locations:
     ).add_to(m)
 
 # Renderiza uma seção de cabeçalho personalizada usando HTML e CSS
-html_code = """
-<div style="text-align: center; padding: 10px; background-color: #4CAF50; color: white;">
-    <h1>Bem-vindo ao Mapa de Recomendações</h1>
-    <p>Explore os melhores restaurantes e pontos turísticos.</p>
-</div>
-"""
+with open("templates/map.html", "r", encoding="utf-8") as file:
+    html_code = file.read()
 
 components.html(html_code, height=120)
 
