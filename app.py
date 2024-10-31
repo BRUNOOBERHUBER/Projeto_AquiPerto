@@ -29,6 +29,13 @@ def mapa():
     # Salva o mapa diretamente na pasta `templates`
     mapa.save('templates/map.html')
     return render_template('map.html')
+  
+ 
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
