@@ -3,7 +3,13 @@ import folium
 
 app = Flask(__name__)
 
+
 @app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/mapa')
 def mapa():
     # Cria o mapa centralizado em uma localização específica
     mapa = folium.Map(location=[-23.598858, -46.676492], zoom_start=16)
@@ -18,6 +24,8 @@ def mapa():
     # Salva o mapa diretamente na pasta `templates`
     mapa.save('templates/map.html')
     return render_template('map.html')
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
