@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, jsonify
-import folium
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from dotenv import load_dotenv
 import certifi
@@ -9,6 +9,8 @@ load_dotenv('.cred')
 from flask import Flask, jsonify
 
 app = Flask(__name__)
+
+app.secret_key = os.getenv("SECRET_KEY")  # Definindo uma chave secreta para a sessão
 
 ca = certifi.where()
 def connect():
@@ -34,7 +36,35 @@ def get_locations():
     return jsonify(locations)
 
 
-# USUÁRIOS
+# AUTENTICAÇÃO
+# Rota de login
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    email = data.get('email')
+    senha = data.get('senha')
+
+    if not email or not senha:
+        return {"erro": "Email e senha são obrigatórios"}, 400
+
+    mongo = connect()
+    user = mongo.db.usuarios.find_one({"email": email})
+    
+    if user and check_password_hash(user['senha'], senha):
+        session['user_id'] = str(user["_id"])  # Armazena o ID do usuário na sessão
+        return jsonify({"message": "Login bem-sucedido"}), 200
+    else:
+        return jsonify({"erro": "Credenciais inválidas. Crie uma conta se você ainda não tem uma."}), 401
+
+
+# Rota de logout
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.pop('user_id', None)  # Remove o usuário da sessão
+    return jsonify({"message": "Logout bem-sucedido"}), 200
+
+
+# USUÁRIOS CADASTRO
 # GET
 @app.route('/usuarios', methods=['GET'])
 def get_usuarios():
@@ -42,16 +72,12 @@ def get_usuarios():
     if mongo:
         filtro = {}
         projecao = {"_id" : 0}
-        
         dados_usuarios = mongo.db.usuarios.find(filtro, projecao)
-
         resp = {
             "usuarios": list( dados_usuarios )
         }
-
         if not resp:
             return {"status": "Nenhum usuario cadastrado"}, 404
-
         return resp, 200
     else:
         return {"erro": "Não foi possivel encontrar usuarios"},500
@@ -77,21 +103,29 @@ def ler_usuario(id):
 @app.route('/usuarios', methods=['POST'])
 def cadastrar_usuario():
     data = request.json
-    campos = ['nome', 'email', 'ultimo_nome']
+    campos = ['nome', 'email', 'senha']
+
     # Verificação dos campos obrigatórios
     for campo in campos:
         if campo not in data:
             return {"erro": f"campo {campo} é obrigatório"}, 400
+        
     # Verificação de e-mail vazio
     if data['email'] == '':
-        return {"erro": "email não pode ser uma string vazia"}, 400
+        return {"erro": "Email não pode ser uma string vazia"}, 400
     mongo = connect()
     if mongo:
+
         # Verificar se já existe um usuário com o mesmo e-mail
-        existing_user = mongo.db.usuarios.find_one({'email': data['email']})
-        if existing_user:
+        email_ja_existente = mongo.db.usuarios.find_one({'email': data['email']})
+        if email_ja_existente:
             return {"erro": "Este email já está sendo utilizado"}, 400
-        # Inserir o novo usuário
+        
+        # Verificar se a senha possui mais de 4 caracteres
+        if len(data['senha']) < 4:
+            return {"erro": "A senha deve ter pelo menos 4 caracteres"}, 400
+        
+        # Inserir um novo usuário
         result = mongo.db.usuarios.insert_one(data)
         return {"id": str(result.inserted_id)}, 201
     else:
@@ -102,7 +136,7 @@ def cadastrar_usuario():
 @app.route('/usuarios/<id>', methods=['PUT'])
 def put_usuario(id):
     data = request.json
-    campos = ['email', 'nome', 'ultimo_nome']
+    campos = ['email', 'nome', 'senha']
     for campo in campos:
         if campo not in data:
             return {"erro": f"campo {campo} é obrigatório"}, 400
@@ -145,6 +179,9 @@ def delete_usuario(id):
             return {'erro': f'Ocorreu um erro: {str(e)}'}, 500
     else:
         return {"Erro": "Problema na conexão com o banco de dados"}, 500
+
+
+
 
 
 if __name__ == "__main__":
