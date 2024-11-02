@@ -49,6 +49,7 @@ def token_required(f):
 def index():
     return jsonify({"message": "Bem-vindo ao sistema"})
 
+
 @app.route('/usuarios', methods=['GET'])
 def get_usuarios():
     # Use a instância global do mongo
@@ -57,14 +58,11 @@ def get_usuarios():
         projecao = {"_id": 0}
 
         dados_usuarios = mongo.db.usuarios.find(filtro, projecao)
-
         resp = {
             "usuarios": list(dados_usuarios)
         }
-
         if not resp["usuarios"]:
             return {"status": "Nenhum usuário cadastrado"}, 404
-
         return resp, 200
     else:
         return {"erro": "Não foi possível encontrar usuários"}, 500
@@ -74,22 +72,17 @@ def get_usuarios():
 def cadastrar_usuario():
     data = request.json
     campos = ['nome', 'email', 'senha']
-
     for campo in campos:
         if campo not in data:
             return {"erro": f"Campo {campo} é obrigatório"}, 400
-
     if data['email'] == '':
         return {"erro": "Email não pode ser uma string vazia"}, 400
-
     if len(data['senha']) < 4:
         return {"erro": "A senha deve ter pelo menos 4 caracteres"}, 400
-
     if mongo:
         existing_user = mongo.db.usuarios.find_one({'email': data['email']})
         if existing_user:
             return {"erro": "Este email já está sendo utilizado"}, 400
-
         hashed_password = generate_password_hash(data['senha'])  # Hash da senha
         user_data = {
             'nome': data['nome'],
