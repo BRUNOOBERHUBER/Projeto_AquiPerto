@@ -47,7 +47,17 @@ def token_required(f):
 
 @app.route('/')
 def index():
-    return jsonify({"message": "Bem-vindo ao sistema"})
+    return render_template('index.html')
+# Rota para fornecer dados de localização
+@app.route("/locations")
+def get_locations():
+    # Exemplo de dados de localização
+    locations = [
+        {"name": "São Paulo", "lat": -23.55052, "lon": -46.633308},
+        {"name": "Rio de Janeiro", "lat": -22.906847, "lon": -43.172896},
+        # Adicione mais localizações aqui
+    ]
+    return jsonify(locations)
 
 
 @app.route('/usuarios', methods=['GET'])
@@ -66,6 +76,22 @@ def get_usuarios():
         return resp, 200
     else:
         return {"erro": "Não foi possível encontrar usuários"}, 500
+
+
+# GET ID
+@app.route('/usuarios/<id>', methods=['GET'])
+def ler_usuario(id):
+    if mongo:
+        try:
+            usuario = mongo.db.usuarios.find_one({'_id': ObjectId(id)})
+            if not usuario:
+                return {'Erro': 'Não foi possivel encontrar o usuario com o id indicado'}
+            else:
+                usuario['_id'] = str(id)
+                return usuario, 200
+        except:
+            return jsonify({'erro': 'Usuário não encontrado'}), 404
+
 
 # POST
 @app.route('/usuarios', methods=['POST'])
