@@ -181,21 +181,5 @@ def login():
         return jsonify({"erro": "Credenciais inválidas. Crie uma conta se você ainda não tem uma."}), 401
 
 
-# Rota para obter dados de usuário (protegida)
-@app.route('/usuarios/<id>', methods=['GET'])
-@token_required
-def ler_usuario(current_user, id):
-    if mongo:
-        try:
-            usuario = mongo.db.usuarios.find_one({'_id': ObjectId(id)})
-            if not usuario:
-                return {'Erro': 'Não foi possível encontrar o usuário com o id indicado'}, 404
-            else:
-                usuario['_id'] = str(id)
-                return usuario, 200
-        except:
-            return jsonify({'erro': 'Usuário não encontrado'}), 404
-
-
 if __name__ == "__main__":
     app.run(debug=True)
