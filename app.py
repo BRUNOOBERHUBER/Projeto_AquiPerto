@@ -59,7 +59,7 @@ def get_locations():
     ]
     return jsonify(locations)
 
-
+# GET
 @app.route('/usuarios', methods=['GET'])
 def get_usuarios():
     # Use a instância global do mongo
@@ -77,21 +77,20 @@ def get_usuarios():
     else:
         return {"erro": "Não foi possível encontrar usuários"}, 500
 
-
 # GET ID
 @app.route('/usuarios/<id>', methods=['GET'])
-def ler_usuario(id):
+@token_required
+def ler_usuario(current_user, id):
     if mongo:
         try:
             usuario = mongo.db.usuarios.find_one({'_id': ObjectId(id)})
             if not usuario:
-                return {'Erro': 'Não foi possivel encontrar o usuario com o id indicado'}
+                return {'Erro': 'Não foi possível encontrar o usuário com o id indicado'}, 404
             else:
                 usuario['_id'] = str(id)
                 return usuario, 200
         except:
             return jsonify({'erro': 'Usuário não encontrado'}), 404
-
 
 # POST
 @app.route('/usuarios', methods=['POST'])
