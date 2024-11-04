@@ -18,6 +18,9 @@ ca = certifi.where()
 
 mongo = PyMongo(app, tlsCAFile=ca)  # Inicialize o mongo aqui
 
+# Acessa a coleção 'locations'
+locais_collection = mongo.db.locations
+
 # Função para criar tokens JWT
 def create_token(user_id):
     payload = {
@@ -163,6 +166,136 @@ def delete_usuario(id):
             return {'erro': f'Ocorreu um erro: {str(e)}'}, 500
     else:
         return {"Erro": "Problema na conexão com o banco de dados"}, 500
+
+# Rotas dos Locais
+
+# GET Todos os Locais Populares
+@app.route('/locais', methods=['GET'])
+def get_locais():
+    locais = locais_collection.find()
+    lista_locais = []
+    for local in locais:
+        try:
+            latitude = float(local.get('latitude', 0))
+            longitude = float(local.get('longitude', 0))
+        except ValueError:
+            latitude = 0
+            longitude = 0
+        lista_locais.append({
+            'id': str(local['_id']),
+            'tipo': local.get('tipo', ''),
+            'nome': local.get('nome', ''),
+            'endereco': local.get('endereco', ''),
+            'telefone': local.get('telefone', ''),
+            'avaliacao': local.get('avaliacao', ''),
+            'latitude': latitude,
+            'longitude': longitude
+        })
+    return jsonify({'locais': lista_locais}), 200
+
+# GET Local Popular por ID
+@app.route('/locais/<id>', methods=['GET'])
+def get_local(id):
+    try:
+        local = locais_collection.find_one({'_id': ObjectId(id)})
+        if local:
+            local_data = {
+                'id': str(local['_id']),
+                'tipo': local.get('tipo', ''),
+                'nome': local.get('nome', ''),
+                'endereco': local.get('endereco', ''),
+                'telefone': local.get('telefone', ''),
+                'avaliacao': local.get('avaliacao', ''),
+                'latitude': local.get('latitude', ''),
+                'longitude': local.get('longitude', '')
+            }
+            return jsonify(local_data), 200
+        else:
+            return jsonify({'erro': 'Local não encontrado'}), 404
+    except:
+        return jsonify({'erro': 'ID inválido'}), 400
+
+# POST Cadastrar um Novo Local Popular
+@app.route('/locais', methods=['POST'])
+def create_local():
+    data = request.json
+    required_fields = ['tipo', 'nome', 'endereco', 'telefone', 'avaliacao', 'latitude', 'longitude']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'erro': f'Campo {field} é obrigatório'}), 400
+    try:
+        # Converter latitude e longitude para float
+        latitude = float(data['latitude'])
+        longitude = float(data['longitude'])
+    except ValueError:
+        return jsonify({'erro': 'Latitude e Longitude devem ser números válidos'}), 400
+
+    local_data = {
+        'tipo': data['tipo'],
+        'nome': data['nome'],
+        'endereco': data['endereco'],
+        'telefone': data['telefone'],
+        'avaliacao': data['avaliacao'],
+        'latitude': latitude,
+        'longitude': longitude,
+        'data_cadastro': datetime.utcnow()
+    }
+    try:
+        result = locais_collection.insert_one(local_data)
+        return jsonify({'id': str(result.inserted_id)}), 201
+    except Exception as e:
+        return jsonify({'erro': f'Erro ao criar local: {str(e)}'}), 500
+
+# PUT Atualizar um Local Popular
+@app.route('/locais/<id>', methods=['PUT'])
+def update_local(id):
+    data = request.json
+    update_fields = ['tipo', 'nome', 'endereco', 'telefone', 'avaliacao', 'latitude', 'longitude']
+    update_data = {}
+    for field in update_fields:
+        if field in data:
+            if field in ['latitude', 'longitude']:
+                try:
+                    update_data[field] = float(data[field])
+                except ValueError:
+                    return jsonify({'erro': f'O campo {field} deve ser um número válido'}), 400
+            else:
+                update_data[field] = data[field]
+    if not update_data:
+        return jsonify({'erro': 'Nenhum campo para atualizar'}), 400
+    try:
+        result = locais_collection.update_one({'_id': ObjectId(id)}, {'$set': update_data})
+        if result.matched_count == 0:
+            return jsonify({'erro': 'Local não encontrado'}), 404
+        elif result.modified_count == 0:
+            return jsonify({'Aviso': 'Nenhuma alteração foi feita no local'}), 200
+        else:
+            local = locais_collection.find_one({'_id': ObjectId(id)})
+            local_data = {
+                'id': str(local['_id']),
+                'tipo': local.get('tipo', ''),
+                'nome': local.get('nome', ''),
+                'endereco': local.get('endereco', ''),
+                'telefone': local.get('telefone', ''),
+                'avaliacao': local.get('avaliacao', ''),
+                'latitude': local.get('latitude', ''),
+                'longitude': local.get('longitude', '')
+            }
+            return jsonify(local_data), 200
+    except Exception as e:
+        return jsonify({'erro': f'Erro ao atualizar local: {str(e)}'}), 500
+
+# DELETE Deletar um Local Popular
+@app.route('/locais/<id>', methods=['DELETE'])
+def delete_local(id):
+    try:
+        result = locais_collection.delete_one({'_id': ObjectId(id)})
+        if result.deleted_count == 0:
+            return jsonify({'erro': 'Local não encontrado'}), 404
+        else:
+            return jsonify({'message': 'Local deletado com sucesso'}), 200
+    except Exception as e:
+        return jsonify({'erro': f'Erro ao deletar local: {str(e)}'}), 500
 
 
 # Rota de login
