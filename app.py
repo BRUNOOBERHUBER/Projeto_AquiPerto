@@ -3,20 +3,26 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from dotenv import load_dotenv
 import certifi
-from flask_pymongo import PyMongo, ObjectId
+from flask_pymongo import PyMongo
+from bson.objectid import ObjectId
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps
+from flask_cors import CORS
 
+# Carrega variáveis de ambiente do arquivo .cred
 load_dotenv('.cred')
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")  # Chave secreta para JWT
-app.config["MONGO_URI"] = os.getenv("MONGO_URI")  # Mova a configuração para cá
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")  # Chave secreta para JWT e sessões
+app.config["MONGO_URI"] = os.getenv("MONGO_URI")  # URI do MongoDB
 
+# Configuração do CORS para permitir requisições de outros domínios
+CORS(app)
+
+# Inicializa o PyMongo
 ca = certifi.where()
-
-mongo = PyMongo(app, tlsCAFile=ca)  # Inicialize o mongo aqui
+mongo = PyMongo(app, tlsCAFile=ca)
 
 # Acessa a coleção 'locations'
 locais_collection = mongo.db.locations
@@ -47,29 +53,39 @@ def token_required(f):
         return f(current_user, *args, **kwargs)
     return decorated
 
-
+# Rota principal
 @app.route('/')
 def index():
-    return render_template('index.html')
-# Rota para fornecer dados de localização
-@app.route("/locations")
-def get_locations():
-    # Exemplo de dados de localização
-    locations = [
-        {"name": "São Paulo", "lat": -23.55052, "lon": -46.633308},
-        {"name": "Rio de Janeiro", "lat": -22.906847, "lon": -43.172896},
-        # Adicione mais localizações aqui
-    ]
-    return jsonify(locations)
+    message = session.pop('message', None)
+    return render_template('index.html', message=message)
 
-# GET
+# Rota para fornecer dados de localização (Streamlit)
+@app.route("/locations", methods=['GET'])
+def get_locations():
+    locais = locais_collection.find()
+    lista_locais = []
+    for local in locais:
+        try:
+            latitude = float(local.get('latitude', 0))
+            longitude = float(local.get('longitude', 0))
+        except ValueError:
+            latitude = 0
+            longitude = 0
+        lista_locais.append({
+            'name': local.get('nome', 'Sem Nome'),
+            'lat': latitude,
+            'lon': longitude
+        })
+    return jsonify(lista_locais), 200
+
+# Rotas de Usuários
+
+# GET Todos os Usuários
 @app.route('/usuarios', methods=['GET'])
 def get_usuarios():
-    # Use a instância global do mongo
     if mongo:
         filtro = {}
-        projecao = {"_id": 0}
-
+        projecao = {"_id": 0, "senha": 0}  # Não retornar a senha
         dados_usuarios = mongo.db.usuarios.find(filtro, projecao)
         resp = {
             "usuarios": list(dados_usuarios)
@@ -80,22 +96,24 @@ def get_usuarios():
     else:
         return {"erro": "Não foi possível encontrar usuários"}, 500
 
-# GET ID
+# GET Usuário por ID (Protegido)
 @app.route('/usuarios/<id>', methods=['GET'])
 @token_required
 def ler_usuario(current_user, id):
     if mongo:
         try:
-            usuario = mongo.db.usuarios.find_one({'_id': ObjectId(id)})
+            usuario = mongo.db.usuarios.find_one({'_id': ObjectId(id)}, {"senha": 0})  # Não retornar a senha
             if not usuario:
                 return {'Erro': 'Não foi possível encontrar o usuário com o id indicado'}, 404
             else:
-                usuario['_id'] = str(id)
-                return usuario, 200
+                usuario['_id'] = str(usuario['_id'])
+                return jsonify(usuario), 200
         except:
             return jsonify({'erro': 'Usuário não encontrado'}), 404
+    else:
+        return {"erro": "Problema na conexão com o banco de dados"}, 500
 
-# POST
+# POST Cadastrar Usuário
 @app.route('/usuarios', methods=['POST'])
 def cadastrar_usuario():
     data = request.json
@@ -122,7 +140,7 @@ def cadastrar_usuario():
     else:
         return {"erro": "Não foi possível adicionar o usuário"}, 500
 
-# PUT
+# PUT Atualizar Usuário
 @app.route('/usuarios/<id>', methods=['PUT'])
 def put_usuario(id):
     data = request.json
@@ -132,24 +150,28 @@ def put_usuario(id):
             return {"erro": f"campo {campo} é obrigatório"}, 400
     if mongo:
         try:
-            success = False
-            id = str(id)
-            filtro = {'_id': id}
-            dados_usuario = mongo.db.usuarios.find_one(filtro)
-            update = {"$set": data}
-            dados_usuario = mongo.db.usuarios.update_one({'_id' : ObjectId(id)}, update)
-            success = True
-        except:
-            return {'Erro': 'Não foi encontrado o usuario com o id indicado'}, 404
-    if success:
-        filtro = {}
-        projecao = {"_id" : 0}
-        dados_usuarios = mongo.db.usuarios.find_one(filtro, projecao)
-        return dados_usuarios
+            hashed_password = generate_password_hash(data['senha'])  # Hash da senha
+            update_data = {
+                'nome': data['nome'],
+                'email': data['email'],
+                'senha': hashed_password
+            }
+            update = {"$set": update_data}
+            result = mongo.db.usuarios.update_one({'_id': ObjectId(id)}, update)
+            if result.matched_count == 0:
+                return {'Erro': 'Usuário não encontrado'}, 404
+            elif result.modified_count == 0:
+                return {'Aviso': 'Nenhuma alteração foi feita no usuário'}, 200
+            else:
+                usuario = mongo.db.usuarios.find_one({'_id': ObjectId(id)}, {'senha': 0})
+                usuario['_id'] = str(usuario['_id'])
+                return jsonify(usuario), 200
+        except Exception as e:
+            return {'Erro': f'Ocorreu um erro: {str(e)}'}, 500
     else:
-        return {"erro": "Não foi possivel atualizar usuario"}, 500
+        return {"erro": "Não foi possível conectar ao banco de dados"}, 500
 
-# DELETE
+# DELETE Deletar Usuário
 @app.route('/usuarios/<id>', methods=['DELETE'])
 def delete_usuario(id):
     if mongo:
@@ -297,22 +319,37 @@ def delete_local(id):
     except Exception as e:
         return jsonify({'erro': f'Erro ao deletar local: {str(e)}'}), 500
 
-
 # Rota de login
 @app.route('/login', methods=['POST'])
 def login():
-    data = request.json
-    email = data.get('email')
-    senha = data.get('senha')
-    if not email or not senha:
-        return {"erro": "Email e senha são obrigatórios"}, 400
-    user = mongo.db.usuarios.find_one({"email": email})
-    if user and check_password_hash(user['senha'], senha):
-        token = create_token(user["_id"])  # Gera o token JWT
-        return jsonify({"token": token}), 200
+    if request.is_json:
+        # Login via API (JSON)
+        data = request.json
+        email = data.get('email')
+        senha = data.get('senha')
+        if not email or not senha:
+            return {"erro": "Email e senha são obrigatórios"}, 400
+        user = mongo.db.usuarios.find_one({"email": email})
+        if user and check_password_hash(user['senha'], senha):
+            token = create_token(user["_id"])  # Gera o token JWT
+            return jsonify({"token": token}), 200
+        else:
+            return jsonify({"erro": "Credenciais inválidas. Crie uma conta se você ainda não tem uma."}), 401
     else:
-        return jsonify({"erro": "Credenciais inválidas. Crie uma conta se você ainda não tem uma."}), 401
-
+        # Login via formulário HTML
+        email = request.form.get('email')
+        senha = request.form.get('senha')
+        if not email or not senha:
+            session['message'] = "Email e senha são obrigatórios."
+            return redirect(url_for('index'))
+        user = mongo.db.usuarios.find_one({"email": email})
+        if user and check_password_hash(user['senha'], senha):
+            session['user_id'] = str(user['_id'])
+            session['message'] = "Login realizado com sucesso!"
+            return redirect(url_for('index'))
+        else:
+            session['message'] = "Credenciais inválidas."
+            return redirect(url_for('index'))
 
 if __name__ == "__main__":
     app.run(debug=True)
