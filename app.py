@@ -57,7 +57,15 @@ def token_required(f):
 @app.route('/')
 def index():
     message = session.pop('message', None)
-    return render_template('index.html', message=message)
+    user_id = session.get('user_id')
+    nome_usuario = None
+
+    if user_id:
+        usuario = mongo.db.usuarios.find_one({'_id': ObjectId(user_id)})
+        if usuario:
+            nome_usuario = usuario.get('nome')
+
+    return render_template('index.html', message=message, nome_usuario=nome_usuario)
 
 # Rota para fornecer dados de localização (Streamlit)
 @app.route("/locations", methods=['GET'])
@@ -350,6 +358,13 @@ def login():
         else:
             session['message'] = "Credenciais inválidas."
             return redirect(url_for('index'))
+        
+# Rota de logout
+@app.route('/logout', methods=['GET'])
+def logout():
+    session.pop('user_id', None)  # Remove o 'user_id' da sessão, se existir
+    session['message'] = "Logout realizado com sucesso."
+    return redirect(url_for('index'))
 
 if __name__ == "__main__":
     app.run(debug=True)

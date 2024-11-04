@@ -8,9 +8,16 @@
 </head>
 
 <body>
-    <!-- Logo no canto superior esquerdo -->
+    <!-- Logo no canto superior esquerdo e Botão de Logout no canto superior direito -->
     <header>
         <img src="{{ url_for('static', filename='img/logo_aquiperto.jpg') }}" alt="logo_aquiperto" class="logo">
+        
+        {% if nome_usuario %}
+            <div class="user-info">
+                <span>Olá, {{ nome_usuario }}!</span>
+                <a href="/logout"><button class="logout-button">Logout</button></a>
+            </div>
+        {% endif %}
     </header>
     
     <!-- Container centralizado -->
