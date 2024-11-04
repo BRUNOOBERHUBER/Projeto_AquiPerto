@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from dotenv import load_dotenv
@@ -113,32 +113,76 @@ def ler_usuario(current_user, id):
     else:
         return {"erro": "Problema na conexão com o banco de dados"}, 500
 
-# POST Cadastrar Usuário
+# Função para criar um novo usuário
 @app.route('/usuarios', methods=['POST'])
-def cadastrar_usuario():
-    data = request.json
-    campos = ['nome', 'email', 'senha']
-    for campo in campos:
-        if campo not in data:
-            return {"erro": f"Campo {campo} é obrigatório"}, 400
-    if data['email'] == '':
-        return {"erro": "Email não pode ser uma string vazia"}, 400
-    if len(data['senha']) < 4:
-        return {"erro": "A senha deve ter pelo menos 4 caracteres"}, 400
-    if mongo:
-        existing_user = mongo.db.usuarios.find_one({'email': data['email']})
-        if existing_user:
-            return {"erro": "Este email já está sendo utilizado"}, 400
-        hashed_password = generate_password_hash(data['senha'])  # Hash da senha
-        user_data = {
-            'nome': data['nome'],
-            'email': data['email'],
-            'senha': hashed_password
-        }
-        result = mongo.db.usuarios.insert_one(user_data)
-        return {"id": str(result.inserted_id)}, 201
+def create_user():
+    # Obtém dados do corpo da requisição
+    nome = request.json.get('nome')
+    email = request.json.get('email')
+    senha = request.json.get('senha')
+
+    if not nome or not email or not senha:
+        return jsonify({"erro": "Nome, email e senha são obrigatórios"}), 400
+
+    # Verifica se o usuário já existe
+    if mongo.db.usuarios.find_one({"email": email}):
+        return jsonify({"erro": "Email já cadastrado"}), 409
+
+    # Aplica hash na senha antes de salvar no banco
+    hashed_password = generate_password_hash(senha)
+
+    # Cria o documento do usuário
+    user_data = {
+        "nome": nome,
+        "email": email,
+        "senha": hashed_password
+    }
+
+    # Insere o usuário no banco de dados
+    mongo.db.usuarios.insert_one(user_data)
+
+    # Retorna sucesso
+    return jsonify({"mensagem": "Usuário criado com sucesso!"}), 201
+
+# Função para verificar as credenciais do usuário
+@app.route('/login', methods=['POST'])
+def login():
+    # Obtém dados do corpo da requisição
+    email = request.json.get('email')
+    senha = request.json.get('senha')
+
+    if not email or not senha:
+        return jsonify({"erro": "Email e senha são obrigatórios"}), 400
+
+    # Busca o usuário no banco de dados
+    user = mongo.db.usuarios.find_one({"email": email})
+
+    if not user:
+        return jsonify({"erro": "Usuário não encontrado"}), 404
+
+    # Verifica a senha
+    if check_password_hash(user['senha'], senha):
+        # Autenticação bem-sucedida
+        return jsonify({"mensagem": "Login realizado com sucesso!"}), 200
     else:
-        return {"erro": "Não foi possível adicionar o usuário"}, 500
+        # Senha incorreta
+        return jsonify({"erro": "Senha incorreta"}), 401
+
+# Rota protegida que requer autenticação
+@app.route('/area-protegida', methods=['GET'])
+def protected_area():
+    auth = request.authorization
+    if not auth or not check_user_credentials(auth.username, auth.password):
+        return Response('Você precisa se autenticar.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+    return jsonify({"mensagem": "Você está autenticado!"})
+
+# Função auxiliar para verificar as credenciais (para autenticação básica)
+def check_user_credentials(email, senha):
+    user = mongo.db.usuarios.find_one({"email": email})
+    if user and check_password_hash(user['senha'], senha):
+        return True
+    return False
 
 # PUT Atualizar Usuário
 @app.route('/usuarios/<id>', methods=['PUT'])
@@ -319,37 +363,10 @@ def delete_local(id):
     except Exception as e:
         return jsonify({'erro': f'Erro ao deletar local: {str(e)}'}), 500
 
-# Rota de login
-@app.route('/login', methods=['POST'])
-def login():
-    if request.is_json:
-        # Login via API (JSON)
-        data = request.json
-        email = data.get('email')
-        senha = data.get('senha')
-        if not email or not senha:
-            return {"erro": "Email e senha são obrigatórios"}, 400
-        user = mongo.db.usuarios.find_one({"email": email})
-        if user and check_password_hash(user['senha'], senha):
-            token = create_token(user["_id"])  # Gera o token JWT
-            return jsonify({"token": token}), 200
-        else:
-            return jsonify({"erro": "Credenciais inválidas. Crie uma conta se você ainda não tem uma."}), 401
-    else:
-        # Login via formulário HTML
-        email = request.form.get('email')
-        senha = request.form.get('senha')
-        if not email or not senha:
-            session['message'] = "Email e senha são obrigatórios."
-            return redirect(url_for('index'))
-        user = mongo.db.usuarios.find_one({"email": email})
-        if user and check_password_hash(user['senha'], senha):
-            session['user_id'] = str(user['_id'])
-            session['message'] = "Login realizado com sucesso!"
-            return redirect(url_for('index'))
-        else:
-            session['message'] = "Credenciais inválidas."
-            return redirect(url_for('index'))
+
+
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
