@@ -4,24 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login / Cadastro</title>
-    <link rel="stylesheet" href="static/style.css"> 
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"> 
 </head>
 
 <body>
-    <!-- Logo no canto superior esquerdo -->
+    <!-- Logo no canto superior esquerdo e Botão de Logout no canto superior direito -->
     <header>
-        <img src="static/img/logo_aquiperto.jpg" alt="logo_aquiperto" class="logo">
+        <img src="{{ url_for('static', filename='img/logo_aquiperto.jpg') }}" alt="logo_aquiperto" class="logo">
+        
+        {% if nome_usuario %}
+            <div class="user-info">
+                <span>Olá, {{ nome_usuario }}!</span>
+                <a href="/logout"><button class="logout-button">Logout</button></a>
+            </div>
+        {% endif %}
     </header>
     
-    <!-- Container principal centralizado -->
+    <!-- Container centralizado -->
     <div class="container">
         <h2>Login</h2>
+        
+        <!-- Exibição de mensagens -->
+        {% if message %}
+            {% if "sucesso" in message %}
+                <p class="message success">{{ message }}</p>
+            {% else %}
+                <p class="message error">{{ message }}</p>
+            {% endif %}
+        {% endif %}
+        
         <form action="/login" method="POST">
             <label for="login-email">Email:</label>
-            <input type="email" id="login-email" name="login-email" required>
+            <input type="email" id="login-email" name="email" required>
 
             <label for="login-password">Senha:</label>
-            <input type="password" id="login-password" name="login-password" required>
+            <input type="password" id="login-password" name="senha" required>
 
             <button type="submit">Entrar</button>
         </form>
