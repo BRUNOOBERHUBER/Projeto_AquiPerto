@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, Response
 from werkzeug.security import generate_password_hash, check_password_hash
+import requests
 import os
 from dotenv import load_dotenv
 import certifi
@@ -53,34 +54,22 @@ def token_required(f):
         return f(current_user, *args, **kwargs)
     return decorated
 
-# Rota principal
+
 @app.route('/')
 def index():
-    message = session.pop('message', None)
-    return render_template('index.html', message=message)
-
-# Rota para fornecer dados de localização (Streamlit)
-@app.route("/locations", methods=['GET'])
+    return render_template('index.html')
+# Rota para fornecer dados de localização
+@app.route("/locations")
 def get_locations():
-    locais = locais_collection.find()
-    lista_locais = []
-    for local in locais:
-        try:
-            latitude = float(local.get('latitude', 0))
-            longitude = float(local.get('longitude', 0))
-        except ValueError:
-            latitude = 0
-            longitude = 0
-        lista_locais.append({
-            'name': local.get('nome', 'Sem Nome'),
-            'lat': latitude,
-            'lon': longitude
-        })
-    return jsonify(lista_locais), 200
+    # Exemplo de dados de localização
+    locations = [
+        {"name": "São Paulo", "lat": -23.55052, "lon": -46.633308},
+        {"name": "Rio de Janeiro", "lat": -22.906847, "lon": -43.172896},
+        # Adicione mais localizações aqui
+    ]
+    return jsonify(locations)
 
-# Rotas de Usuários
-
-# GET Todos os Usuários
+# GET
 @app.route('/usuarios', methods=['GET'])
 def get_usuarios():
     if mongo:
@@ -363,10 +352,37 @@ def delete_local(id):
     except Exception as e:
         return jsonify({'erro': f'Erro ao deletar local: {str(e)}'}), 500
 
-
-
-
-
+# Rota de login
+@app.route('/login', methods=['POST'])
+def login():
+    if request.is_json:
+        # Login via API (JSON)
+        data = request.json
+        email = data.get('email')
+        senha = data.get('senha')
+        if not email or not senha:
+            return {"erro": "Email e senha são obrigatórios"}, 400
+        user = mongo.db.usuarios.find_one({"email": email})
+        if user and check_password_hash(user['senha'], senha):
+            token = create_token(user["_id"])  # Gera o token JWT
+            return jsonify({"token": token}), 200
+        else:
+            return jsonify({"erro": "Credenciais inválidas. Crie uma conta se você ainda não tem uma."}), 401
+    else:
+        # Login via formulário HTML
+        email = request.form.get('email')
+        senha = request.form.get('senha')
+        if not email or not senha:
+            session['message'] = "Email e senha são obrigatórios."
+            return redirect(url_for('index'))
+        user = mongo.db.usuarios.find_one({"email": email})
+        if user and check_password_hash(user['senha'], senha):
+            session['user_id'] = str(user['_id'])
+            session['message'] = "Login realizado com sucesso!"
+            return redirect(url_for('index'))
+        else:
+            session['message'] = "Credenciais inválidas."
+            return redirect(url_for('index'))
 
 if __name__ == "__main__":
     app.run(debug=True)
