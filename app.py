@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+import requests
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from dotenv import load_dotenv
@@ -45,16 +46,38 @@ def token_required(f):
     return decorated
 
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+# @app.route('/')
+# def index():
+#     return render_template('index.html')
 # Rota para fornecer dados de localização
-@app.route("/map")
+
+# def get_ip():
+#     response = requests.get('https://api64.ipify.org?format=json').json()
+#     return response["ip"]
+
+# @app.route('/local')
+# def get_user_location():
+#     ip_address = get_ip()
+#     response = requests.get(f'https://ipapi.co/{ip_address}/json/').json()
+#     location_data = {
+#         "ip": ip_address,
+#         "longitude": response.get("longitude"),
+#         "latitude": response.get("latitude"),
+#     }
+#     return location_data
+
+
+@app.route("/mapa")
 def get_locations_markers():
+
+    # user = get_user_location()
+
+    # print(user)
+
     # Exemplo de dados de localização
     locations = [
         {"name": "Insper", "lat": -23.5986884, "lon": -46.6765147, "info": "Instituto de ensino e pesquisa"},
-        # {"name": "Rio de Janeiro", "lat": -22.906847, "lon": -43.172896},:
+        # {'name': "You", "lat": user['latitude'], "lon": user['longitude'], 'info': "Where you are at"}
         # Adicione mais localizações aqui
     ]
     return jsonify(locations)
