@@ -369,5 +369,57 @@ def delete_local(id):
         return jsonify({'erro': f'Erro ao deletar local: {str(e)}'}), 500
 
 
+@app.route('/favoritos/usuarios/<id_usuarios>/locations/<id_locations>', methods=['POST'])
+def registrar_favorito(id_usuarios, id_locations):
+    lugar = mongo.db.locations.find_one({"_id": ObjectId(id_locations)})
+    if not lugar:
+        return {"error": "Lugar não encontrado"}, 404
+    
+    # Verificar se o usuário existe
+    usuario = mongo.db.usuarios.find_one({"_id": ObjectId(id_usuarios)})
+    if not usuario:
+        return {"error": "Usuário não encontrado"}, 404
+
+    # Registrar favoritos
+    favoritos = {
+        "id_usuarios": id_usuarios,
+        "id_locations": id_locations
+    }
+    mongo.db.favoritos.insert_one(favoritos)
+
+    return {"message": "Favoritado com sucesso"}, 201
+
+
+@app.route('/favoritos/<id_favorito>', methods=['DELETE'])
+def deletar_favorito(id_favorito):
+    favorito = mongo.db.favoritos.find_one({"_id": ObjectId(id_favorito)})
+    
+    if not favorito:
+        return {"error": "Favorito não encontrado"},
+    # Deletar favorito
+    mongo.db.favoritos.delete_one({"_id": ObjectId(id_favorito)})
+
+    return {"message": "Favorito deletado com sucesso"}, 200
+
+
+@app.route('/favoritos', methods=['GET'])
+def get_favoritos():
+    favoritos = mongo.db.favoritos.find({}, {"_id": 1, "id_usuarios": 1, "id_locations": 1})
+    
+    lista_favoritos = []
+    
+    for favorito in favoritos:
+        favorito['_id'] = str(favorito['_id'])  # Converter ObjectId para string
+        favorito['id_usuarios'] = str(favorito['id_usuarios'])  # Converter ObjectId do usuário para string
+        favorito['id_locations'] = str(favorito['id_locations'])  # Converter ObjectId do lugar para string
+        lista_favoritos.append(favorito)
+    
+    if len(lista_favoritos) == 0:
+        return {"error": "Nenhum favorito registrado"}, 404
+    
+    return jsonify(lista_favoritos), 200
+
+
+
 if __name__ == "__main__":
     app.run(debug=True)
