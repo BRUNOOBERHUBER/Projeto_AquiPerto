@@ -143,8 +143,10 @@ def create_user():
     # Insere o usuário no banco de dados
     mongo.db.usuarios.insert_one(user_data)
 
-    # Retorna sucesso
-    return redirect(url_for('login'))  # Redireciona para a página de login após o cadastro
+    # Retorna sucesso de forma adequada
+    if request.is_json:
+        return jsonify({"mensagem": "Usuário criado com sucesso!"}), 201
+
 
 
 # Função para verificar as credenciais do usuário
