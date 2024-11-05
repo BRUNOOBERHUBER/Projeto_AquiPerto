@@ -59,12 +59,12 @@ def token_required(f):
 def index():
     return render_template('index.html')
 # Rota para fornecer dados de localização
-@app.route("/mapa")
+@app.route("/locations")
 def get_locations():
     # Exemplo de dados de localização
     locations = [
-        {"name": "Insper", "lat": -23.5987762, "lon": -46.6763865, "info": "Instituto de ensino e pesquisa"},
-        # {"name": "Rio de Janeiro", "lat": -22.906847, "lon": -43.172896},
+        {"name": "São Paulo", "lat": -23.55052, "lon": -46.633308},
+        {"name": "Rio de Janeiro", "lat": -22.906847, "lon": -43.172896},
         # Adicione mais localizações aqui
     ]
     return jsonify(locations)
@@ -102,29 +102,16 @@ def ler_usuario(current_user, id):
     else:
         return {"erro": "Problema na conexão com o banco de dados"}, 500
 
+# Função para criar um novo usuário
 @app.route('/usuarios', methods=['POST'])
 def create_user():
-    if request.is_json:
-        # Obtém dados do corpo da requisição JSON
-        data = request.get_json()
-        nome = data.get('nome')
-        email = data.get('email')
-        senha = data.get('senha')
-        confirmar_senha = data.get('confirmar_senha')
-    else:
-        # Obtém dados do formulário
-        nome = request.form.get('nome')
-        email = request.form.get('email')
-        senha = request.form.get('senha')
-        confirmar_senha = request.form.get('confirmar_senha')
+    # Obtém dados do corpo da requisição
+    nome = request.json.get('nome')
+    email = request.json.get('email')
+    senha = request.json.get('senha')
 
-    # Verifica se todos os campos foram preenchidos
-    if not nome or not email or not senha or not confirmar_senha:
-        return jsonify({"erro": "Todos os campos são obrigatórios"}), 400
-
-    # Verifica se as senhas coincidem
-    if senha != confirmar_senha:
-        return jsonify({"erro": "As senhas não coincidem"}), 400
+    if not nome or not email or not senha:
+        return jsonify({"erro": "Nome, email e senha são obrigatórios"}), 400
 
     # Verifica se o usuário já existe
     if mongo.db.usuarios.find_one({"email": email}):
@@ -143,11 +130,8 @@ def create_user():
     # Insere o usuário no banco de dados
     mongo.db.usuarios.insert_one(user_data)
 
-    # Retorna sucesso de forma adequada
-    if request.is_json:
-        return jsonify({"mensagem": "Usuário criado com sucesso!"}), 201
-
-
+    # Retorna sucesso
+    return jsonify({"mensagem": "Usuário criado com sucesso!"}), 201
 
 # Função para verificar as credenciais do usuário
 @app.route('/login', methods=['POST'])
