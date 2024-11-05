@@ -102,16 +102,29 @@ def ler_usuario(current_user, id):
     else:
         return {"erro": "Problema na conexão com o banco de dados"}, 500
 
-# Função para criar um novo usuário
 @app.route('/usuarios', methods=['POST'])
 def create_user():
-    # Obtém dados do corpo da requisição
-    nome = request.json.get('nome')
-    email = request.json.get('email')
-    senha = request.json.get('senha')
+    if request.is_json:
+        # Obtém dados do corpo da requisição JSON
+        data = request.get_json()
+        nome = data.get('nome')
+        email = data.get('email')
+        senha = data.get('senha')
+        confirmar_senha = data.get('confirmar_senha')
+    else:
+        # Obtém dados do formulário
+        nome = request.form.get('nome')
+        email = request.form.get('email')
+        senha = request.form.get('senha')
+        confirmar_senha = request.form.get('confirmar_senha')
 
-    if not nome or not email or not senha:
-        return jsonify({"erro": "Nome, email e senha são obrigatórios"}), 400
+    # Verifica se todos os campos foram preenchidos
+    if not nome or not email or not senha or not confirmar_senha:
+        return jsonify({"erro": "Todos os campos são obrigatórios"}), 400
+
+    # Verifica se as senhas coincidem
+    if senha != confirmar_senha:
+        return jsonify({"erro": "As senhas não coincidem"}), 400
 
     # Verifica se o usuário já existe
     if mongo.db.usuarios.find_one({"email": email}):
@@ -131,7 +144,8 @@ def create_user():
     mongo.db.usuarios.insert_one(user_data)
 
     # Retorna sucesso
-    return jsonify({"mensagem": "Usuário criado com sucesso!"}), 201
+    return redirect(url_for('login'))  # Redireciona para a página de login após o cadastro
+
 
 # Função para verificar as credenciais do usuário
 @app.route('/login', methods=['POST'])
