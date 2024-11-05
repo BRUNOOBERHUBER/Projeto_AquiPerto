@@ -352,37 +352,6 @@ def delete_local(id):
     except Exception as e:
         return jsonify({'erro': f'Erro ao deletar local: {str(e)}'}), 500
 
-# Rota de login
-@app.route('/login', methods=['POST'])
-def login():
-    if request.is_json:
-        # Login via API (JSON)
-        data = request.json
-        email = data.get('email')
-        senha = data.get('senha')
-        if not email or not senha:
-            return {"erro": "Email e senha são obrigatórios"}, 400
-        user = mongo.db.usuarios.find_one({"email": email})
-        if user and check_password_hash(user['senha'], senha):
-            token = create_token(user["_id"])  # Gera o token JWT
-            return jsonify({"token": token}), 200
-        else:
-            return jsonify({"erro": "Credenciais inválidas. Crie uma conta se você ainda não tem uma."}), 401
-    else:
-        # Login via formulário HTML
-        email = request.form.get('email')
-        senha = request.form.get('senha')
-        if not email or not senha:
-            session['message'] = "Email e senha são obrigatórios."
-            return redirect(url_for('index'))
-        user = mongo.db.usuarios.find_one({"email": email})
-        if user and check_password_hash(user['senha'], senha):
-            session['user_id'] = str(user['_id'])
-            session['message'] = "Login realizado com sucesso!"
-            return redirect(url_for('index'))
-        else:
-            session['message'] = "Credenciais inválidas."
-            return redirect(url_for('index'))
 
 if __name__ == "__main__":
     app.run(debug=True)
