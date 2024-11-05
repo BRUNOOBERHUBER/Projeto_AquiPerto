@@ -59,12 +59,12 @@ def token_required(f):
 def index():
     return render_template('index.html')
 # Rota para fornecer dados de localização
-@app.route("/locations")
+@app.route("/mapa")
 def get_locations():
     # Exemplo de dados de localização
     locations = [
-        {"name": "São Paulo", "lat": -23.55052, "lon": -46.633308},
-        {"name": "Rio de Janeiro", "lat": -22.906847, "lon": -43.172896},
+        {"name": "Insper", "lat": -23.5987762, "lon": -46.6763865, "info": "Instituto de ensino e pesquisa"},
+        # {"name": "Rio de Janeiro", "lat": -22.906847, "lon": -43.172896},
         # Adicione mais localizações aqui
     ]
     return jsonify(locations)
