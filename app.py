@@ -179,6 +179,7 @@ def get_locais():
         return jsonify({'erro': f'Erro ao buscar locais: {str(e)}'}), 500
 
 # GET Local por ID
+
 @app.route('/locais/<id>', methods=['GET'])
 def get_local(id):
     try:
