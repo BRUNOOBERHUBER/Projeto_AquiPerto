@@ -244,7 +244,8 @@ def get_locais():
             'telefone': local.get('telefone', ''),
             'avaliacao': local.get('avaliacao', ''),
             'latitude': latitude,
-            'longitude': longitude
+            'longitude': longitude,
+            'imagem': local.get('imagem', '')
         })
     return jsonify({'locais': lista_locais}), 200
 
