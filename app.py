@@ -7,6 +7,7 @@ from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
 from datetime import datetime
 from flask_cors import CORS
+from bson import ObjectId
 
 # Carrega variáveis de ambiente do arquivo .cred
 load_dotenv('.cred')
@@ -43,9 +44,11 @@ def get_locations():
 @app.route('/usuarios', methods=['GET'])
 def get_usuarios():
     try:
-        projecao = {"_id": 0, "senha": 0}  # Não retornar a senha
-        dados_usuarios = mongo.db.usuarios.find({}, projecao)
-        usuarios = list(dados_usuarios)
+        dados_usuarios = mongo.db.usuarios.find({})
+        usuarios = []
+        for usuario in dados_usuarios:
+            usuario['_id'] = str(usuario['_id'])  # Convertendo ObjectId para string
+            usuarios.append(usuario)
         if not usuarios:
             return {"status": "Nenhum usuário cadastrado"}, 404
         return {"usuarios": usuarios}, 200
