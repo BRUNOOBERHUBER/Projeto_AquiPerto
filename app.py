@@ -284,50 +284,77 @@ def delete_local(id):
 
 # Rotas dos Favoritos
 
-@app.route('/favoritos/usuarios/<id_usuarios>/locations/<id_locations>', methods=['POST'])
-def registrar_favorito(id_usuarios, id_locations):
+# Registrar um favorito
+@app.route('/favoritos/<email>/adicionar', methods=['POST'])
+def registrar_favorito(email):
     try:
-        lugar = mongo.db.locations.find_one({"_id": ObjectId(id_locations)})
-        if not lugar:
-            return {"error": "Lugar não encontrado"}, 404
+        data = request.json
+        id_local = data.get('id_local')
+        if not id_local:
+            return {"error": "ID do local é obrigatório"}, 400
 
-        usuario = mongo.db.usuarios.find_one({"_id": ObjectId(id_usuarios)})
+        lugar = locais_collection.find_one({"_id": ObjectId(id_local)})
+        if not lugar:
+            return {"error": "Local não encontrado"}, 404
+
+        usuario = mongo.db.usuarios.find_one({"email": email})
         if not usuario:
             return {"error": "Usuário não encontrado"}, 404
 
-        favoritos = {
-            "id_usuarios": id_usuarios,
-            "id_locations": id_locations
+        # Verificar se o favorito já existe
+        favorito_existente = mongo.db.favoritos.find_one({"email": email, "id_local": id_local})
+        if favorito_existente:
+            return {"message": "Local já está nos favoritos"}, 200
+
+        favorito = {
+            "email": email,
+            "id_local": id_local
         }
-        mongo.db.favoritos.insert_one(favoritos)
-        return {"message": "Favoritado com sucesso"}, 201
+        mongo.db.favoritos.insert_one(favorito)
+        return {"message": "Favorito adicionado com sucesso"}, 201
     except Exception as e:
         return {"erro": f"Erro ao registrar favorito: {str(e)}"}, 500
 
-@app.route('/favoritos/<id_favorito>', methods=['DELETE'])
-def deletar_favorito(id_favorito):
+# Remover um favorito
+@app.route('/favoritos/<email>/remover', methods=['POST'])
+def deletar_favorito(email):
     try:
-        favorito = mongo.db.favoritos.find_one({"_id": ObjectId(id_favorito)})
+        data = request.json
+        id_local = data.get('id_local')
+        if not id_local:
+            return {"error": "ID do local é obrigatório"}, 400
+
+        favorito = mongo.db.favoritos.find_one({"email": email, "id_local": id_local})
         if not favorito:
             return {"error": "Favorito não encontrado"}, 404
-        mongo.db.favoritos.delete_one({"_id": ObjectId(id_favorito)})
-        return {"message": "Favorito deletado com sucesso"}, 200
+
+        mongo.db.favoritos.delete_one({"_id": favorito["_id"]})
+        return {"message": "Favorito removido com sucesso"}, 200
     except Exception as e:
         return {"erro": f"Erro ao deletar favorito: {str(e)}"}, 500
 
-@app.route('/favoritos', methods=['GET'])
-def get_favoritos():
+# Obter favoritos de um usuário específico
+@app.route('/favoritos/<email>', methods=['GET'])
+def get_favoritos_usuario(email):
     try:
-        favoritos = mongo.db.favoritos.find({}, {"_id": 1, "id_usuarios": 1, "id_locations": 1})
-        lista_favoritos = []
-        for favorito in favoritos:
-            favorito['_id'] = str(favorito['_id'])
-            favorito['id_usuarios'] = str(favorito['id_usuarios'])
-            favorito['id_locations'] = str(favorito['id_locations'])
-            lista_favoritos.append(favorito)
-        if not lista_favoritos:
-            return {"error": "Nenhum favorito registrado"}, 404
-        return jsonify(lista_favoritos), 200
+        favoritos_cursor = mongo.db.favoritos.find({"email": email})
+        favoritos = []
+        for favorito in favoritos_cursor:
+            id_local = favorito.get('id_local')
+            local = locais_collection.find_one({"_id": ObjectId(id_local)})
+            if local:
+                favoritos.append({
+                    'id': str(local['_id']),
+                    'tipo': local.get('tipo', ''),
+                    'nome': local.get('nome', ''),
+                    'endereco': local.get('endereco', ''),
+                    'telefone': local.get('telefone', ''),
+                    'avaliacao': local.get('avaliacao', ''),
+                    'latitude': local.get('latitude', ''),
+                    'longitude': local.get('longitude', ''),
+                    'imagem': local.get('imagem', '')
+                })
+        return jsonify({'favoritos': favoritos}), 200
     except Exception as e:
         return jsonify({'erro': f'Erro ao buscar favoritos: {str(e)}'}), 500
 
